@@ -1,0 +1,33 @@
+# Poll interval in minutes
+poll_interval_minutes: 15
+
+# Claude model for analysis
+claude_model: "claude-haiku-4-5"
+
+# Edge / gate thresholds
+min_edge: 0.08           # 8 percentage points
+min_probability: 0.80    # 80% confidence rule
+min_confidence: "medium" # "low", "medium", or "high"
+max_spread: 0.03         # $0.03 max bid-ask spread
+position_size_cap: 500   # $500 max position
+
+# Cooldown: don't re-alert same market within N hours unless edge grows materially
+cooldown_hours: 4
+cooldown_edge_growth: 0.03  # re-alert if edge grows by 3+ pp above original
+
+# Time-to-resolution filter (days)
+min_days_to_resolution: 1
+max_days_to_resolution: 60
+
+# Kalshi series to monitor
+monitored_series:
+  - KXAAAGASM    # Monthly US gas prices (AAA)
+  - KXAAAGASW    # Weekly US gas prices (AAA)
+  - KXWTI        # Daily WTI oil range
+  - KXWTIW       # Weekly WTI oil range
+
+# EIA cross-check sub-schedule (every N cycles)
+eia_check_every_n_cycles: 6  # ~every 90 min at 15-min poll
+
+# Feature flags
+enable_order_placement: false  # NEVER set true in supervised phase
