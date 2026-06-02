@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kalshi Supervised Trading Assistant</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">K</div>
+      <div class="brand-text">
+        <h1>Kalshi Assistant</h1>
+        <span class="subtitle">Supervised · notification-only</span>
+      </div>
+    </div>
+
+    <div class="status-cluster">
+      <span id="statusPill" class="pill pill-idle">
+        <span class="dot"></span><span id="statusText">Stopped</span>
+      </span>
+      <button id="btnToggle" class="btn btn-primary">Start monitoring</button>
+      <button id="btnRunNow" class="btn btn-ghost" title="Run one cycle now">Run cycle now</button>
+    </div>
+  </header>
+
+  <!-- Tabs -->
+  <nav class="tabs">
+    <button class="tab active" data-view="dashboard">Dashboard</button>
+    <button class="tab" data-view="alerts">Alerts</button>
+    <button class="tab" data-view="calibration">Calibration</button>
+    <button class="tab" data-view="settings">Settings</button>
+    <div class="tabs-spacer"></div>
+    <span id="lastUpdated" class="muted small"></span>
+  </nav>
+
+  <!-- Setup banner -->
+  <div id="setupBanner" class="banner hidden">
+    <strong>Setup required.</strong>
+    <span id="setupBannerText">Add your API keys to start monitoring.</span>
+    <button class="btn btn-small" data-goto="settings">Open Settings</button>
+  </div>
+
+  <main class="content">
+    <!-- DASHBOARD -->
+    <section id="view-dashboard" class="view">
+      <div class="cards">
+        <div class="card metric">
+          <span class="metric-label">WTI front-month (CL=F)</span>
+          <span id="mWti" class="metric-value">—</span>
+          <span id="mWtiTs" class="metric-sub muted"></span>
+        </div>
+        <div class="card metric">
+          <span class="metric-label">AAA national gas avg</span>
+          <span id="mGas" class="metric-value">—</span>
+          <span id="mGasTs" class="metric-sub muted"></span>
+        </div>
+        <div class="card metric">
+          <span class="metric-label">Cycles run</span>
+          <span id="mCycles" class="metric-value">0</span>
+          <span id="mNext" class="metric-sub muted"></span>
+        </div>
+        <div class="card metric">
+          <span class="metric-label">Active signals</span>
+          <span id="mSignals" class="metric-value accent">0</span>
+          <span class="metric-sub muted">edges passing all gates</span>
+        </div>
+      </div>
+
+      <div id="errorStrip" class="error-strip hidden"></div>
+
+      <div class="card table-card">
+        <div class="table-head">
+          <h2>Monitored markets</h2>
+          <span id="marketsMeta" class="muted small"></span>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Signal</th>
+                <th>Market</th>
+                <th>Type</th>
+                <th class="num">Underlying</th>
+                <th class="num">Claude</th>
+                <th>Conf</th>
+                <th class="num">Kalshi</th>
+                <th class="num">Edge</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="marketsBody">
+              <tr class="empty-row"><td colspan="9">No data yet. Press <b>Run cycle now</b> or <b>Start monitoring</b>.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ALERTS -->
+    <section id="view-alerts" class="view hidden">
+      <div class="card table-card">
+        <div class="table-head">
+          <h2>Alert history</h2>
+          <button class="btn btn-small btn-ghost" id="btnRefreshAlerts">Refresh</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Time (UTC)</th><th>Market</th><th>Side</th>
+                <th class="num">Claude</th><th class="num">Kalshi</th>
+                <th class="num">Edge</th><th>Sent</th>
+              </tr>
+            </thead>
+            <tbody id="alertsBody">
+              <tr class="empty-row"><td colspan="7">No alerts yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- CALIBRATION -->
+    <section id="view-calibration" class="view hidden">
+      <div class="cards">
+        <div class="card metric">
+          <span class="metric-label">Resolved estimates</span>
+          <span id="cN" class="metric-value">0</span>
+        </div>
+        <div class="card metric">
+          <span class="metric-label">Brier score</span>
+          <span id="cBrier" class="metric-value">—</span>
+          <span class="metric-sub muted">lower is better</span>
+        </div>
+        <div class="card metric">
+          <span class="metric-label">Naive baseline</span>
+          <span id="cNaive" class="metric-value">—</span>
+          <span class="metric-sub muted">always 50%</span>
+        </div>
+        <div class="card metric">
+          <span class="metric-label">Logged estimates</span>
+          <span id="cEstimates" class="metric-value">0</span>
+        </div>
+      </div>
+
+      <div class="card table-card">
+        <div class="table-head">
+          <h2>Reliability by probability bin</h2>
+          <button class="btn btn-small btn-ghost" id="btnRefreshCalib">Refresh</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Predicted bin</th><th class="num">N</th><th class="num">Hit rate</th><th>Reliability</th></tr></thead>
+            <tbody id="calibBody">
+              <tr class="empty-row"><td colspan="4">No resolved markets yet. Record outcomes with <code>scripts/backfill_resolutions.py</code>.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted small pad">Do not scale capital until the 0.8–1.0 bin's hit rate is within ~±5 pts of predicted across ≥30 resolved high-confidence calls.</p>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="view-settings" class="view hidden">
+      <div class="settings-grid">
+        <div class="card">
+          <h2>API keys &amp; secrets</h2>
+          <p class="muted small">Stored locally in <code>.env</code>. Leave a field blank to keep its current value.</p>
+          <div class="form">
+            <label class="field">
+              <span>Anthropic API key <em class="req">required</em></span>
+              <input id="sAnthropic" type="password" placeholder="sk-ant-..." autocomplete="off" />
+              <small id="sAnthropicState" class="muted"></small>
+            </label>
+            <label class="field">
+              <span>EIA API key <em class="req">required</em></span>
+              <input id="sEia" type="password" placeholder="EIA key" autocomplete="off" />
+              <small id="sEiaState" class="muted"></small>
+            </label>
+            <label class="field">
+              <span>ntfy topic <em class="req">required</em></span>
+              <input id="sNtfy" type="text" placeholder="unguessable-topic-name" autocomplete="off" />
+              <small id="sNtfyState" class="muted"></small>
+            </label>
+            <label class="field">
+              <span>Alpha Vantage key <em class="opt">optional</em></span>
+              <input id="sAlpha" type="password" placeholder="fallback crude source" autocomplete="off" />
+              <small id="sAlphaState" class="muted"></small>
+            </label>
+          </div>
+          <button class="btn btn-ghost btn-small" id="btnTestNotify">Send test notification</button>
+          <span id="testNotifyMsg" class="muted small"></span>
+        </div>
+
+        <div class="card">
+          <h2>Strategy thresholds</h2>
+          <p class="muted small">Tuned in <code>config.yaml</code>. Changes apply on the next cycle.</p>
+          <div class="form two-col">
+            <label class="field">
+              <span>Min probability</span>
+              <input id="tProb" type="number" step="0.01" min="0.5" max="1" />
+            </label>
+            <label class="field">
+              <span>Min edge (frac)</span>
+              <input id="tEdge" type="number" step="0.01" min="0" max="1" />
+            </label>
+            <label class="field">
+              <span>Min confidence</span>
+              <select id="tConf"></select>
+            </label>
+            <label class="field">
+              <span>Max spread ($)</span>
+              <input id="tSpread" type="number" step="0.01" min="0" max="1" />
+            </label>
+            <label class="field">
+              <span>Position cap ($)</span>
+              <input id="tCap" type="number" step="50" min="0" />
+            </label>
+            <label class="field">
+              <span>Poll interval (min)</span>
+              <input id="tPoll" type="number" step="1" min="1" max="240" />
+            </label>
+            <label class="field">
+              <span>Cooldown (hours)</span>
+              <input id="tCooldown" type="number" step="1" min="0" />
+            </label>
+            <label class="field">
+              <span>Cooldown edge growth</span>
+              <input id="tCooldownGrow" type="number" step="0.01" min="0" max="1" />
+            </label>
+            <label class="field">
+              <span>Min days to resolve</span>
+              <input id="tMinDays" type="number" step="1" min="0" />
+            </label>
+            <label class="field">
+              <span>Max days to resolve</span>
+              <input id="tMaxDays" type="number" step="1" min="1" />
+            </label>
+            <label class="field">
+              <span>Claude model</span>
+              <select id="tModel"></select>
+            </label>
+            <label class="field">
+              <span>EIA check every N cycles</span>
+              <input id="tEiaEvery" type="number" step="1" min="1" />
+            </label>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Monitored markets</h2>
+          <p class="muted small">Which Kalshi series to watch each cycle.</p>
+          <div id="seriesList" class="series-list"></div>
+        </div>
+      </div>
+
+      <div class="settings-actions">
+        <button class="btn btn-primary" id="btnSaveSettings">Save settings</button>
+        <span id="saveMsg" class="muted small"></span>
+      </div>
+    </section>
+  </main>
+
+  <!-- Detail drawer -->
+  <div id="drawer" class="drawer hidden">
+    <div class="drawer-backdrop" data-close-drawer></div>
+    <aside class="drawer-panel">
+      <button class="drawer-close" data-close-drawer>✕</button>
+      <h2 id="dTicker">—</h2>
+      <p id="dQuestion" class="muted"></p>
+      <div id="dSignal" class="drawer-signal"></div>
+      <dl class="drawer-stats" id="dStats"></dl>
+      <h3>Claude's reasoning</h3>
+      <p id="dReasoning"></p>
+      <h3>Key risks</h3>
+      <ul id="dRisks"></ul>
+      <div class="drawer-note">⚠️ Max position $500 · Manual approval required · Not financial advice</div>
+    </aside>
+  </div>
+
+  <footer class="footer">
+    <span>Notification-only · No auto-trading · $500 cap · Multi-month supervised evaluation</span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

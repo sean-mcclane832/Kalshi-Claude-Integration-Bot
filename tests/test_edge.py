@@ -19,8 +19,7 @@ def test_taker_fee_peak_at_50():
 
 
 def test_taker_fee_formula():
-    import math
-    # At 0.50: ceil(0.07 * 1 * 0.5 * 0.5 * 100) / 100 = ceil(1.75) / 100 = 0.0175
+    # Marginal fee at 0.50: 0.07 * 1 * 0.5 * 0.5 = 0.0175
     assert kalshi_taker_fee(0.50) == pytest.approx(0.0175)
 
 

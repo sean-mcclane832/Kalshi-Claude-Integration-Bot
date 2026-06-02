@@ -11,3 +11,10 @@ beautifulsoup4>=4.12.3
 lxml>=5.1.0
 pandas>=2.2.0
 cryptography>=42.0.0
+
+# Desktop GUI
+pywebview>=5.0
+# On Linux, also install a GUI backend, e.g.:  pip install "pywebview[qt]"
+
+# Dev / tests
+pytest>=8.0.0

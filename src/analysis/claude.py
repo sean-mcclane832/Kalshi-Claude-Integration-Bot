@@ -1,16 +1,22 @@
-"""Claude API integration for probability estimation."""
+"""Claude API integration for probability estimation.
+
+The Anthropic client is created lazily (on first use) and re-created if the API
+key changes, so the desktop app can accept a key in Settings and start working
+without a restart.
+"""
 import json
 import logging
 from typing import Optional
 
-from anthropic import Anthropic
 from pydantic import BaseModel, Field
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from src.config import ANTHROPIC_API_KEY, CLAUDE_MODEL
+from src import config
 
 logger = logging.getLogger(__name__)
-_client = Anthropic(api_key=ANTHROPIC_API_KEY)
+
+_client = None
+_client_key: str | None = None
 
 _SYSTEM_PROMPT = """You are a calibrated prediction market analyst specializing in energy commodities.
 Your task is to estimate the probability that a specific Kalshi binary contract resolves YES.
@@ -32,6 +38,19 @@ class ProbabilityEstimate(BaseModel):
     key_risks: list[str] = Field(description="2-4 key risks or uncertainties")
 
 
+def _get_client():
+    """Return an Anthropic client bound to the current API key."""
+    global _client, _client_key
+    key = config.ANTHROPIC_API_KEY
+    if not key:
+        raise RuntimeError("ANTHROPIC_API_KEY is not set")
+    if _client is None or _client_key != key:
+        from anthropic import Anthropic
+        _client = Anthropic(api_key=key)
+        _client_key = key
+    return _client
+
+
 def estimate_probability(
     market_ticker: str,
     market_question: str,
@@ -43,12 +62,12 @@ def estimate_probability(
     underlying_value: float,
     underlying_label: str,
     underlying_history: list[dict],
-    market_type: str,  # "gas" or "crude"
+    market_type: str,
 ) -> Optional[ProbabilityEstimate]:
     prompt = _build_prompt(
         market_ticker, market_question, rules_primary, close_time,
         days_to_resolution, kalshi_yes_ask, kalshi_yes_bid,
-        underlying_value, underlying_label, underlying_history, market_type
+        underlying_value, underlying_label, underlying_history, market_type,
     )
     return _call_claude(prompt)
 
@@ -67,7 +86,9 @@ def _build_prompt(
     market_type: str,
 ) -> str:
     history_str = json.dumps(history[-10:], indent=2) if history else "[]"
-    kalshi_price_str = f"YES ask: ${yes_ask:.2f}, YES bid: ${yes_bid:.2f}" if yes_ask else "N/A"
+    kalshi_price_str = (
+        f"YES ask: ${yes_ask:.2f}, YES bid: ${yes_bid:.2f}" if yes_ask else "N/A"
+    )
 
     return f"""MARKET ANALYSIS REQUEST
 
@@ -97,15 +118,14 @@ Estimate the probability this market resolves YES. Respond with JSON only:
 @retry(wait=wait_exponential(multiplier=1, min=2, max=20), stop=stop_after_attempt(2), reraise=False)
 def _call_claude(prompt: str) -> Optional[ProbabilityEstimate]:
     try:
-        resp = _client.messages.create(
-            model=CLAUDE_MODEL,
+        resp = _get_client().messages.create(
+            model=config.CLAUDE_MODEL,
             max_tokens=1024,
             temperature=0.1,
             system=_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}],
         )
         raw = resp.content[0].text.strip()
-        # Strip markdown code fences if present
         if raw.startswith("```"):
             raw = raw.split("```")[1]
             if raw.startswith("json"):

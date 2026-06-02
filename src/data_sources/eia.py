@@ -5,7 +5,7 @@ from typing import Optional
 import requests
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from src.config import EIA_API_KEY
+from src import config
 
 logger = logging.getLogger(__name__)
 _BASE = "https://api.eia.gov/v2"
@@ -16,7 +16,7 @@ def get_wti_spot_latest() -> Optional[float]:
     """Latest EIA WTI Cushing spot price (daily, lagged ~3-4 business days)."""
     try:
         params = {
-            "api_key": EIA_API_KEY,
+            "api_key": config.EIA_API_KEY,
             "data[]": "value",
             "facets[series][]": "RWTC",
             "frequency": "daily",
@@ -42,7 +42,7 @@ def get_retail_gas_latest() -> Optional[float]:
     """Latest EIA US regular retail gasoline price (weekly, ~1-week lag)."""
     try:
         params = {
-            "api_key": EIA_API_KEY,
+            "api_key": config.EIA_API_KEY,
             "data[]": "value",
             "facets[series][]": "EMM_EPMR_PTE_NUS_DPG",
             "frequency": "weekly",
