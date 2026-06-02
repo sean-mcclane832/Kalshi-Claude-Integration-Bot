@@ -23,6 +23,112 @@ A Python application that monitors Kalshi gas-price and crude-oil event-contract
   dashboard, settings, alert history, and calibration. No file editing required.
 - **Headless CLI:** the same engine as a background loop that only sends phone alerts.
 
+---
+
+## Quick Start (install in 5 minutes)
+
+This is the full path from a fresh machine to a running app. If you just want the
+shortest route, follow **Step 1 → 2 → 3A**.
+
+### Step 1 — Get your free credentials
+
+You need three things before the app can do anything (all free except Anthropic usage):
+
+| Credential | Where to get it | Notes |
+|------------|-----------------|-------|
+| **Anthropic API key** | https://console.anthropic.com → *API Keys* | Pay-as-you-go; this is the only one that costs money (a few cents per cycle). Keep it secret. |
+| **EIA API key** | https://www.eia.gov/opendata/register.php | Free, instant, emailed to you. |
+| **ntfy topic** | Just invent a name, e.g. `kalshi-7f3a9-alerts` | Install the **ntfy** app (iOS/Android), then *Subscribe* to that exact name. Pick something unguessable — anyone who knows it can read your alerts. |
+
+> You do **not** need a Kalshi API key — market data comes from public endpoints.
+
+### Step 2 — Install
+
+```bash
+# 1. Get the code
+git clone <repo-url>
+cd Kalshi-Claude-Integration-Bot
+
+# 2. Create an isolated Python environment (Python 3.11+)
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+
+# 3. Install dependencies
+pip install -r requirements.txt
+```
+
+**Linux only:** the desktop window needs a WebView backend. Install one:
+```bash
+pip install "pywebview[qt]"      # Qt backend (simplest)
+# — or — system GTK: sudo apt install gir1.2-webkit2-4.0
+```
+(Windows and macOS need nothing extra — they use the built-in browser engine.)
+
+### Step 3A — Run the desktop app
+
+```bash
+python run_desktop.py
+```
+
+A window opens. **On first launch it will show a "Setup required" banner** because
+no keys are saved yet:
+
+1. Click **Open Settings** (or the **Settings** tab).
+2. Paste your **Anthropic key**, **EIA key**, and your **ntfy topic** name.
+3. *(Optional)* tweak strategy thresholds and pick which markets to monitor.
+4. Click **Save settings**. The banner disappears.
+5. *(Optional)* click **Send test notification** — your phone should buzz.
+6. Click **Start monitoring** (runs every N minutes) or **Run cycle now** (one pass).
+
+That's it. Your keys are saved to a local `.env` file (gitignored, never uploaded).
+
+### Step 3B — Build a double-click app (no terminal needed afterwards)
+
+If you'd rather not use the terminal each time, build a standalone executable once:
+
+```bash
+python build.py                  # creates dist/KalshiAssistant/
+```
+
+Then launch `dist/KalshiAssistant/KalshiAssistant` (`.exe` on Windows, or the
+`KalshiAssistant.app` bundle on macOS) by double-clicking. Enter your keys in
+**Settings** exactly as in Step 3A. See
+[Building a standalone executable](#building-a-standalone-executable) for platform notes.
+
+### Step 3C — Run headless (phone alerts only, no window)
+
+```bash
+python -m src.main               # loop forever
+python -m src.main --once        # one cycle, then exit
+```
+
+CLI mode reads keys from `.env`. Create it once: `cp .env.example .env` and fill in
+`ANTHROPIC_API_KEY`, `EIA_API_KEY`, and `NTFY_TOPIC`.
+
+---
+
+## Using the app day-to-day
+
+Once monitoring is running, here's what each tab does:
+
+- **Dashboard** — the main view. Top cards show live WTI and gas prices, cycles run,
+  and how many markets currently have a signal. The table lists every monitored
+  market with Claude's probability, its confidence, Kalshi's implied price, and the
+  **edge**. A 🔔 appears when *all* gates pass. **Click any row** to open a drawer with
+  Claude's full reasoning, the key risks it flagged, and a suggested entry price.
+- **Alerts** — a history of every notification that fired, so you can review past calls.
+- **Calibration** — once markets resolve and you've recorded outcomes (see
+  [Calibration Tracking](#calibration-tracking)), this shows the Brier score and a
+  reliability table answering the key question: *do Claude's 80% calls actually win ~80%
+  of the time?*
+- **Settings** — change keys or any strategy threshold at any time. Edits apply on the
+  **next cycle** — no restart needed.
+
+**What to do when an alert fires:** the app never trades for you. A notification is a
+prompt to *go look*. Open the drawer, read the reasoning and risks, and if you agree,
+place the trade yourself on Kalshi — respecting the **$500 position cap**. This human
+approval gate is intentional.
+
 ## Architecture
 
 ```
@@ -56,20 +162,8 @@ Weekly: calibration report (Brier score, reliability curve) → ntfy
 4. **ntfy app** — install on iOS/Android, subscribe to your topic
 5. Python 3.11+
 
-## Setup
-
-```bash
-git clone <repo>
-cd kalshi-assistant
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-
-```
-
-You do **not** need to create `.env` by hand — the desktop app's **Settings**
-screen writes it for you. (CLI users can still `cp .env.example .env` and fill in
-`ANTHROPIC_API_KEY`, `EIA_API_KEY`, `NTFY_TOPIC`.) The ntfy topic is public by
-name, so pick something unguessable.
+> Installation and first-run steps are covered in **[Quick Start](#quick-start-install-in-5-minutes)** above.
+> The sections below are reference detail for building and running.
 
 ## Building a standalone executable
 
@@ -91,26 +185,6 @@ the generated `KalshiAssistant.app` bundle).
 **Security note:** `.env` (your API keys) is **never** bundled. On first launch the
 app writes it next to the executable when you save keys in Settings.
 
-## Running the desktop app (Python source)
-
-```bash
-python run_desktop.py
-```
-
-On first launch, open **Settings**, paste your Anthropic + EIA keys and an ntfy
-topic, and click **Save**. Then press **Start monitoring** (or **Run cycle now**).
-
-- **Dashboard** — live WTI/gas fundamentals, every monitored market with Claude's
-  probability vs. Kalshi's implied price, the edge, and a 🔔 when all gates pass.
-  Click any row for Claude's full reasoning, key risks, and the suggested action.
-- **Alerts** — history of notifications that fired.
-- **Calibration** — Brier score and reliability-by-bin table.
-- **Settings** — API keys and every strategy threshold; changes apply next cycle.
-
-**Platform note (PyWebView backends):** Windows uses the built-in EdgeChromium
-(no extra setup). macOS uses the built-in Cocoa/WebKit. On Linux, install a
-backend: `pip install "pywebview[qt]"` (or `pywebview[gtk]` with system GTK libs).
-
 ## Running headless (CLI)
 
 ```bash
@@ -119,6 +193,7 @@ python -m src.main --once   # run a single cycle and exit
 ```
 
 Runs the poll cycle immediately, then every `poll_interval_minutes` (default: 15).
+CLI mode reads keys from `.env` (see [Quick Start → Step 3C](#step-3c--run-headless-phone-alerts-only-no-window)).
 
 ## Notification Format
 
