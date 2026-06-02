@@ -9,12 +9,23 @@ ready to run, and :func:`reload` after the user edits settings so new values
 take effect without restarting.
 """
 import os
+import sys
 from pathlib import Path
 
 import yaml
 from dotenv import load_dotenv
 
-_ROOT = Path(__file__).parent.parent
+
+def _find_root() -> Path:
+    # When running as a PyInstaller frozen bundle, sys._MEIPASS is the temp
+    # directory where the bundle is extracted.  The .env and config.yaml must
+    # live next to the executable (sys.executable) so the user can edit them.
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).parent
+    return Path(__file__).parent.parent
+
+
+_ROOT = _find_root()
 CONFIG_PATH = _ROOT / "config.yaml"
 ENV_PATH = _ROOT / ".env"
 

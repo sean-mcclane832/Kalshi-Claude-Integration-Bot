@@ -4,10 +4,18 @@ Creates a native window hosting the HTML/CSS/JS dashboard and wires up the
 Python :class:`~desktop.api.Api` bridge.
 """
 import logging
+import sys
 from pathlib import Path
 
 from src import config
 from desktop.api import Api
+
+
+def _web_root() -> Path:
+    # PyInstaller frozen: web assets are in _MEIPASS/desktop/web
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS) / "desktop" / "web"  # type: ignore[attr-defined]
+    return Path(__file__).parent / "web"
 
 
 def _setup_logging() -> None:
@@ -33,7 +41,7 @@ def main() -> None:
         ) from e
 
     api = Api()
-    index = Path(__file__).parent / "web" / "index.html"
+    index = _web_root() / "index.html"
     window = webview.create_window(
         "Kalshi Supervised Trading Assistant",
         str(index),

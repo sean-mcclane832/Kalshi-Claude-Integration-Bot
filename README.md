@@ -15,11 +15,12 @@ A Python application that monitors Kalshi gas-price and crude-oil event-contract
 
 ---
 
-## Two ways to run
+## Three ways to run
 
-- **Desktop app (recommended):** a native window with a dashboard, settings screen,
-  alert history, and calibration view. Start/stop monitoring, run a cycle on demand,
-  and edit all keys/thresholds in the UI — no file editing required.
+- **Standalone executable (easiest):** double-click `KalshiAssistant` — no Python
+  required. Build once with `python build.py`, then distribute `dist/KalshiAssistant/`.
+- **Desktop app (Python source):** `python run_desktop.py` — native window with
+  dashboard, settings, alert history, and calibration. No file editing required.
 - **Headless CLI:** the same engine as a background loop that only sends phone alerts.
 
 ## Architecture
@@ -70,7 +71,27 @@ screen writes it for you. (CLI users can still `cp .env.example .env` and fill i
 `ANTHROPIC_API_KEY`, `EIA_API_KEY`, `NTFY_TOPIC`.) The ntfy topic is public by
 name, so pick something unguessable.
 
-## Running the desktop app
+## Building a standalone executable
+
+```bash
+pip install pyinstaller>=6.0      # one-time
+python build.py                   # creates dist/KalshiAssistant/
+```
+
+Then distribute the entire `dist/KalshiAssistant/` folder. The executable is
+`dist/KalshiAssistant/KalshiAssistant` (or `.exe` on Windows, `.app` on macOS via
+the generated `KalshiAssistant.app` bundle).
+
+**Platform notes:**
+- **Windows** — requires no extra setup; EdgeChromium is built-in.
+- **macOS** — use `KalshiAssistant.app`. Gatekeeper may block unsigned apps; right-click → Open.
+- **Linux** — install a WebView backend before building:
+  `sudo apt install gir1.2-webkit2-4.0`  (GTK) or `pip install PyQtWebEngine` (Qt).
+
+**Security note:** `.env` (your API keys) is **never** bundled. On first launch the
+app writes it next to the executable when you save keys in Settings.
+
+## Running the desktop app (Python source)
 
 ```bash
 python run_desktop.py
@@ -134,7 +155,9 @@ A weekly calibration report fires automatically (Sundays 09:00 UTC) showing:
 ## Project structure
 
 ```
-run_desktop.py            # launch the desktop app
+run_desktop.py            # launch the desktop app (Python source)
+build.py                  # build standalone executable via PyInstaller
+app.spec                  # PyInstaller spec (bundling rules)
 config.yaml               # tunable thresholds (UI-managed)
 desktop/
 ├── app.py                # PyWebView window
