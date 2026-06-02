@@ -1,0 +1,128 @@
+name: Build desktop executables
+
+# Builds the standalone KalshiAssistant app for Windows, macOS, and Linux.
+#
+# Triggers:
+#   - Push a version tag (e.g. v1.0.0)  -> builds + creates a GitHub Release
+#     with all three binaries attached.
+#   - Manual "Run workflow" button      -> builds + uploads artifacts you can
+#     download from the run page (no Release created).
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write        # needed to create the Release and upload assets
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            asset_name: KalshiAssistant-windows
+          - os: macos-latest
+            asset_name: KalshiAssistant-macos
+          - os: ubuntu-latest
+            asset_name: KalshiAssistant-linux
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      # Linux needs a WebView backend (GTK + WebKit) for pywebview to import.
+      - name: Install Linux WebView backend
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgirepository1.0-dev \
+            gir1.2-webkit2-4.1 \
+            gir1.2-gtk-3.0 \
+            python3-gi \
+            pkg-config \
+            libcairo2-dev
+          pip install pygobject
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install "pyinstaller>=6.0"
+
+      - name: Build executable
+        run: python build.py
+
+      # Package the dist/ output into a single archive per platform.
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        run: Compress-Archive -Path dist/KalshiAssistant/* -DestinationPath ${{ matrix.asset_name }}.zip
+        shell: pwsh
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          # Prefer the .app bundle if present; otherwise the dist folder.
+          cd dist
+          if [ -d "KalshiAssistant.app" ]; then
+            zip -r ../${{ matrix.asset_name }}.zip KalshiAssistant.app
+          else
+            zip -r ../${{ matrix.asset_name }}.zip KalshiAssistant
+          fi
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        run: tar -czf ${{ matrix.asset_name }}.tar.gz -C dist KalshiAssistant
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: |
+            ${{ matrix.asset_name }}.zip
+            ${{ matrix.asset_name }}.tar.gz
+          if-no-files-found: error
+
+  release:
+    name: Publish Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true
+          body: |
+            ## Kalshi Supervised Trading Assistant — ${{ github.ref_name }}
+
+            Standalone desktop builds (no Python required).
+
+            | Platform | Download | How to run |
+            |----------|----------|------------|
+            | **Windows** | `KalshiAssistant-windows.zip` | Unzip, run `KalshiAssistant.exe` |
+            | **macOS** | `KalshiAssistant-macos.zip` | Unzip, open `KalshiAssistant.app` (right-click → Open the first time) |
+            | **Linux** | `KalshiAssistant-linux.tar.gz` | `tar -xzf`, run `./KalshiAssistant/KalshiAssistant` |
+
+            On first launch, open **Settings** and enter your Anthropic key, EIA key,
+            and ntfy topic. Your keys are saved locally in `.env` next to the app —
+            **never bundled, never uploaded.**
+
+            > ⚠️ Notification-only. No auto-trading. $500 position cap. Not financial advice.

@@ -84,7 +84,14 @@ That's it. Your keys are saved to a local `.env` file (gitignored, never uploade
 
 ### Step 3B — Build a double-click app (no terminal needed afterwards)
 
-If you'd rather not use the terminal each time, build a standalone executable once:
+If you'd rather not use the terminal each time, you have two options:
+
+**Option 1 — Download a pre-built binary (no Python at all).**
+Grab the latest build for your OS from the repo's **[Releases](../../releases)** page
+(produced automatically by CI — see [Automated builds](#automated-builds-cicd) below),
+unzip it, and double-click `KalshiAssistant`.
+
+**Option 2 — Build it yourself, once:**
 
 ```bash
 python build.py                  # creates dist/KalshiAssistant/
@@ -184,6 +191,27 @@ the generated `KalshiAssistant.app` bundle).
 
 **Security note:** `.env` (your API keys) is **never** bundled. On first launch the
 app writes it next to the executable when you save keys in Settings.
+
+## Automated builds (CI/CD)
+
+A GitHub Actions workflow (`.github/workflows/build-release.yml`) builds the app for
+Windows, macOS, and Linux so you don't have to build it yourself:
+
+- **On every version tag** (`git tag v1.0.0 && git push --tags`): builds all three
+  platforms and publishes a **GitHub Release** with the binaries attached, ready to
+  download from the **[Releases](../../releases)** page.
+- **Manually** (Actions tab → *Build desktop executables* → *Run workflow*): builds all
+  three and uploads them as artifacts on the run page (no Release created) — handy for
+  test builds.
+
+To cut a release:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The workflow needs no secrets — it uses the built-in `GITHUB_TOKEN` to publish.
 
 ## Running headless (CLI)
 
