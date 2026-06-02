@@ -143,6 +143,30 @@ def get_last_notification(ticker: str) -> Optional[sqlite3.Row]:
     return row
 
 
+def get_recent_notifications(limit: int = 50) -> list[dict]:
+    with _conn() as con:
+        rows = con.execute(
+            "SELECT * FROM notifications ORDER BY ts DESC LIMIT ?", (int(limit),)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_recent_estimates(limit: int = 100) -> list[dict]:
+    with _conn() as con:
+        rows = con.execute(
+            "SELECT * FROM estimates ORDER BY ts DESC LIMIT ?", (int(limit),)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def count_rows() -> dict:
+    with _conn() as con:
+        out = {}
+        for table in ("estimates", "notifications", "resolutions", "data_snapshots"):
+            out[table] = con.execute(f"SELECT COUNT(*) AS c FROM {table}").fetchone()["c"]
+    return out
+
+
 def upsert_resolution(ticker: str, resolved_yes: Optional[int], resolution_price: Optional[float], notes: str = "") -> None:
     ts = datetime.now(timezone.utc).isoformat()
     with _conn() as con:

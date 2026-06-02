@@ -4,7 +4,7 @@ from typing import Optional
 
 import requests
 
-from src.config import NTFY_TOPIC
+from src import config
 
 logger = logging.getLogger(__name__)
 _NTFY_BASE = "https://ntfy.sh"
@@ -73,9 +73,13 @@ def _post(title: str, body: str, priority: str = "default", tags: str = "", clic
         headers["Tags"] = tags
     if click:
         headers["Click"] = click
+    topic = config.NTFY_TOPIC
+    if not topic:
+        logger.warning("ntfy topic not configured; skipping notification '%s'", title)
+        return 0
     try:
         resp = requests.post(
-            f"{_NTFY_BASE}/{NTFY_TOPIC}",
+            f"{_NTFY_BASE}/{topic}",
             data=body.encode("utf-8"),
             headers=headers,
             timeout=10,

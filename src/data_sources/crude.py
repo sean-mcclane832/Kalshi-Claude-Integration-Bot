@@ -6,7 +6,7 @@ from typing import Optional
 import requests
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from src.config import ALPHAVANTAGE_KEY
+from src import config
 
 logger = logging.getLogger(__name__)
 
@@ -56,11 +56,11 @@ def _fetch_yfinance(ticker: str) -> Optional[float]:
 
 @retry(wait=wait_exponential(multiplier=1, min=2, max=16), stop=stop_after_attempt(2), reraise=False)
 def _fetch_alpha_vantage_wti() -> Optional[float]:
-    if not ALPHAVANTAGE_KEY:
+    if not config.ALPHAVANTAGE_KEY:
         return None
     try:
         url = "https://www.alphavantage.co/query"
-        params = {"function": "WTI", "interval": "daily", "apikey": ALPHAVANTAGE_KEY}
+        params = {"function": "WTI", "interval": "daily", "apikey": config.ALPHAVANTAGE_KEY}
         resp = requests.get(url, params=params, timeout=10)
         resp.raise_for_status()
         data = resp.json()
