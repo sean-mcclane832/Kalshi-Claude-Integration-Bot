@@ -308,9 +308,35 @@ async function saveSettings() {
     const r = await api("save_settings", { secrets, tunables });
     if (r.ok) {
       msg.textContent = "Saved ✓";
-      ["#sAnthropic", "#sEia", "#sNtfy", "#sAlpha"].forEach((s) => ($(s).value = ""));
+      // Clear secret inputs and show a per-field confirmation so the user
+      // knows the value was persisted (the field goes blank intentionally —
+      // we don't leave plaintext keys sitting in the UI).
+      const fieldMap = {
+        ANTHROPIC_API_KEY: { input: "#sAnthropic", state: "#sAnthropicState" },
+        EIA_API_KEY:        { input: "#sEia",       state: "#sEiaState" },
+        NTFY_TOPIC:         { input: "#sNtfy",       state: "#sNtfyState" },
+        ALPHAVANTAGE_KEY:   { input: "#sAlpha",      state: "#sAlphaState" },
+      };
+      // Remember which fields were just saved before clearing them.
+      const justSaved = new Set(
+        Object.entries(fieldMap)
+          .filter(([, els]) => $(els.input).value.trim())
+          .map(([k]) => k)
+      );
+      for (const els of Object.values(fieldMap)) $(els.input).value = "";
+
+      // Reload labels from backend (shows updated masked values).
       await loadSettings();
       await poll();
+
+      // Flash green confirmation over the updated state labels.
+      for (const k of justSaved) {
+        const el = $(fieldMap[k].state);
+        const original = el.textContent;
+        el.textContent = "Saved ✓";
+        el.style.color = "var(--green)";
+        setTimeout(() => { el.textContent = original; el.style.color = ""; }, 3000);
+      }
       setTimeout(() => (msg.textContent = ""), 2500);
     } else {
       msg.textContent = "Error: " + (r.error || "unknown");
